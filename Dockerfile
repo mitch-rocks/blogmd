@@ -5,10 +5,10 @@ FROM python:3.12-slim
 WORKDIR /data
 
 # Copy only the requirements file first to leverage Docker cache
-COPY ./requirements.txt /data/requirements.txt
+COPY ./requirements.txt ./requirements.txt
 
 # Install dependencies
-RUN pip install --no-cache-dir --upgrade -r /data/requirements.txt
+RUN pip install --no-cache-dir --upgrade -r ./requirements.txt
 
 # Copy the application code
 COPY . .
