@@ -1,4 +1,4 @@
 import mdserver.server
 
 
-server = mdserver.server.start(port=8001)
+server = mdserver.server.start(port=8000)
