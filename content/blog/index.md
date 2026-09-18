@@ -6,7 +6,7 @@ updated_utc: 5th June, 2026
 ---
 
 
->**PREFACE** : this blogging platform was created by me, and can be found in the following GitHub repository: [neutron-au/blogmd](https://github.com/neutron-au/blogmd/)
+>**PREFACE** : this blogging platform was created by me, and can be found in this GitHub repository: [neutron-au/blogmd](https://github.com/neutron-au/blogmd/)
 
 ## Socials
 | Platform | URL |
