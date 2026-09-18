@@ -26,7 +26,7 @@ def start(host:str='0.0.0.0', port:int=8081) -> flask.Flask:
 
     # /
     @app.route('/', methods=['GET'])
-    def root() : return '/blog/', 304
+    def root() : return flask.redirect('/blog/', code=308)
 
     # # /blog/
     # @app.route('/blog/', methods=['GET'])
