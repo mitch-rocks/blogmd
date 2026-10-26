@@ -1,13 +1,13 @@
-"""Password hashing, sessions, CSRF and a small login throttle."""
+"""Password hashing, sessions, CSRF and a small login throttle (FastAPI / Starlette sessions)."""
 from __future__ import annotations
 
-import functools
+import asyncio
 import hmac
 import secrets
 import threading
 import time
 
-from flask import abort, current_app, g, redirect, request, session, url_for
+from fastapi import HTTPException, Request
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from mdserver.domain import User
@@ -29,10 +29,19 @@ def validate_password(password: str) -> str | None:
 
 
 def verify_password(user: User | None, password: str) -> bool:
+    """CPU-heavy (scrypt): call through verify_password_async from request handlers."""
     if user is None or not user.can_login:
         check_password_hash(_DUMMY_HASH, password or '')
         return False
     return check_password_hash(user.password_hash, password or '')
+
+
+async def verify_password_async(user: User | None, password: str) -> bool:
+    return await asyncio.to_thread(verify_password, user, password)
+
+
+async def hash_password_async(password: str) -> str:
+    return await asyncio.to_thread(hash_password, password)
 
 
 # --------------------------------------------------------------------------- throttle
@@ -48,7 +57,10 @@ class LoginThrottle:
     def _recent(self, key) -> list[float]:
         now = time.monotonic()
         hits = [t for t in self._fails.get(key, []) if now - t < self.window_s]
-        self._fails[key] = hits
+        if hits:
+            self._fails[key] = hits
+        else:
+            self._fails.pop(key, None)
         return hits
 
     def blocked(self, ip: str, username: str) -> int:
@@ -61,7 +73,11 @@ class LoginThrottle:
 
     def fail(self, ip: str, username: str) -> None:
         with self._lock:
-            self._recent((ip, username.lower())).append(time.monotonic())
+            key = (ip, username.lower())
+            self._fails[key] = self._recent(key) + [time.monotonic()]
+            if len(self._fails) > 50_000:              # bound memory under credential stuffing
+                for k in list(self._fails)[:10_000]:
+                    self._recent(k)
 
     def reset(self, ip: str, username: str) -> None:
         with self._lock:
@@ -73,58 +89,69 @@ throttle = LoginThrottle()
 
 # --------------------------------------------------------------------------- sessions
 
-def login_user(user: User) -> None:
-    session.clear()                       # new session on login (fixation defence)
-    session['uid'] = user.id
-    session['pwv'] = _password_fingerprint(user)
-    session['csrf'] = secrets.token_urlsafe(32)
-    session.permanent = True
-
-
-def logout_user() -> None:
-    session.clear()
-
-
 def _password_fingerprint(user: User) -> str:
     # changing a password invalidates every existing session for that user
     return (user.password_hash or '')[-16:]
 
 
-def current_user() -> User | None:
-    if 'current_user' not in g:
+def login_user(request: Request, user: User) -> None:
+    request.session.clear()                    # new session on login (fixation defence)
+    request.session.update(uid=user.id, pwv=_password_fingerprint(user), csrf=secrets.token_urlsafe(32))
+
+
+def logout_user(request: Request) -> None:
+    request.session.clear()
+
+
+async def current_user(request: Request) -> User | None:
+    if not hasattr(request.state, 'current_user'):
         user = None
-        uid = session.get('uid')
+        uid = request.session.get('uid')
         if uid is not None:
-            user = current_app.extensions['blogmd'].db.users.get(uid)
+            user = await request.app.state.blogmd.db.users.get(uid)
             if user is None or not user.can_login or \
-                    not hmac.compare_digest(session.get('pwv', ''), _password_fingerprint(user)):
-                session.clear()
+                    not hmac.compare_digest(request.session.get('pwv', ''), _password_fingerprint(user)):
+                request.session.clear()
                 user = None
-        g.current_user = user
-    return g.current_user
+        request.state.current_user = user
+    return request.state.current_user
 
 
-def csrf_token() -> str:
-    if 'csrf' not in session:
-        session['csrf'] = secrets.token_urlsafe(32)
-    return session['csrf']
+def csrf_token(request: Request) -> str:
+    if 'csrf' not in request.session:
+        request.session['csrf'] = secrets.token_urlsafe(32)
+    return request.session['csrf']
 
 
-def check_csrf() -> None:
-    sent = request.headers.get('X-CSRF-Token') or request.form.get('csrf_token', '')
-    expected = session.get('csrf', '')
+def check_csrf(request: Request, form_token: str | None = None) -> None:
+    sent = request.headers.get('X-CSRF-Token') or form_token or ''
+    expected = request.session.get('csrf', '')
     if not expected or not hmac.compare_digest(sent, expected):
-        abort(400, description='Invalid or missing CSRF token. Reload the page and try again.')
+        raise HTTPException(400, 'Invalid or missing CSRF token. Reload the page and try again.')
 
 
-def login_required(view):
-    @functools.wraps(view)
-    def wrapper(*args, **kwargs):
-        if current_user() is None:
-            if request.path.startswith('/write/api/'):
-                abort(401)
-            return redirect(url_for('writer.login', next=request.full_path.rstrip('?')))
-        if request.method not in ('GET', 'HEAD', 'OPTIONS'):
-            check_csrf()
-        return view(*args, **kwargs)
-    return wrapper
+# --------------------------------------------------------------------------- dependencies
+
+class LoginRequired(Exception):
+    """Raised by page routes; turned into a redirect to the sign-in page."""
+
+    def __init__(self, next_url: str):
+        self.next_url = next_url
+
+
+async def require_user_page(request: Request) -> User:
+    user = await current_user(request)
+    if user is None:
+        nxt = request.url.path + (f'?{request.url.query}' if request.url.query else '')
+        raise LoginRequired(nxt)
+    return user
+
+
+async def require_user_api(request: Request) -> User:
+    """JSON API: 401 when signed out, CSRF header required for anything that changes state."""
+    user = await current_user(request)
+    if user is None:
+        raise HTTPException(401, 'Sign in required.')
+    if request.method not in ('GET', 'HEAD', 'OPTIONS'):
+        check_csrf(request)
+    return user

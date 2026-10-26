@@ -1,4 +1,4 @@
-"""SQLite implementation of the storage interfaces (stdlib sqlite3, no ORM)."""
+"""Synchronous SQLite engine (stdlib sqlite3, no ORM). Wrapped for async use in async_db.py."""
 from __future__ import annotations
 
 import itertools
@@ -10,8 +10,7 @@ from datetime import datetime, timezone
 from typing import Iterable, Iterator
 
 from mdserver.domain import Media, Post, PostStatus, Role, User, utcnow
-from mdserver.storage.base import (Conflict, Database, MediaRepository, NotFound,
-                                   PostRepository, SettingsRepository, UserRepository)
+from mdserver.storage.base import Conflict, NotFound
 from .schema import MIGRATIONS
 
 
@@ -56,8 +55,7 @@ def _like(term: str) -> str:
 
 # --------------------------------------------------------------------------- database
 
-class SQLiteDatabase(Database):
-    schemes = ('sqlite',)
+class SyncSQLiteDatabase:
     _mem_counter = itertools.count()
 
     def __init__(self, path: str):
@@ -79,7 +77,7 @@ class SQLiteDatabase(Database):
         self.settings = SQLiteSettings(self)
 
     @classmethod
-    def from_url(cls, url: str) -> 'SQLiteDatabase':
+    def from_url(cls, url: str) -> 'SyncSQLiteDatabase':
         # sqlite:///relative/path.db   sqlite:////absolute/path.db   sqlite:///:memory:
         if not url.startswith('sqlite://'):
             raise ValueError(f'Not a sqlite URL: {url}')
@@ -157,7 +155,7 @@ class SQLiteDatabase(Database):
 
 
 class _Repo:
-    def __init__(self, db: SQLiteDatabase):
+    def __init__(self, db: SyncSQLiteDatabase):
         self.db = db
 
     def _one(self, sql, params=()):
@@ -169,7 +167,7 @@ class _Repo:
 
 # --------------------------------------------------------------------------- users
 
-class SQLiteUsers(_Repo, UserRepository):
+class SQLiteUsers(_Repo):
     def get(self, user_id):
         r = self._one('SELECT * FROM users WHERE id = ?', (user_id,))
         return _row_to_user(r) if r else None
@@ -209,7 +207,7 @@ class SQLiteUsers(_Repo, UserRepository):
 
 # --------------------------------------------------------------------------- posts
 
-class SQLitePosts(_Repo, PostRepository):
+class SQLitePosts(_Repo):
     def get(self, post_id):
         r = self._one('SELECT * FROM posts WHERE id = ?', (post_id,))
         return _row_to_post(r) if r else None
@@ -279,7 +277,7 @@ class SQLitePosts(_Repo, PostRepository):
 
 # --------------------------------------------------------------------------- media
 
-class SQLiteMedia(_Repo, MediaRepository):
+class SQLiteMedia(_Repo):
     def get(self, media_id):
         r = self._one('SELECT * FROM media WHERE id = ?', (media_id,))
         return _row_to_media(r) if r else None
@@ -330,7 +328,7 @@ class SQLiteMedia(_Repo, MediaRepository):
 
 # --------------------------------------------------------------------------- settings
 
-class SQLiteSettings(_Repo, SettingsRepository):
+class SQLiteSettings(_Repo):
     def get(self, key, default=None):
         r = self._one('SELECT value FROM settings WHERE key = ?', (key,))
         return r[0] if r else default

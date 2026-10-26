@@ -1,0 +1,100 @@
+# BlogMD + MongoDB — works with `docker compose up -d` and with Swarm:
+#     docker stack deploy -c docker-compose.yml blogmd
+#
+# Before the first start, put the admin password in a secret file (10+ characters):
+#     printf '%s' 'your-long-password' > admin_password.txt
+# (or delete the ADMIN_PASSWORD_FILE line + secret and read the generated password from `docker logs`).
+#
+# All state (posts, users, settings, media metadata AND uploaded files via GridFS) lives in
+# MongoDB's `mongo-data` volume — that's the one thing to back up (e.g. `mongodump`).
+
+services:
+  mongo:
+    image: mongo:8.0
+    # single-node replica set: enables multi-document transactions (used for atomic saves)
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    # optional on small hosts: cap the WiredTiger cache (default is ~50% of RAM)
+    # command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--wiredTigerCacheSizeGB", "0.5"]
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - backend                      # private: only the app can reach MongoDB (no published port)
+    healthcheck:
+      # healthy once the replica set is initiated; the first run initiates it
+      test: >-
+        mongosh --quiet --eval "try { rs.status().ok } catch (e) {
+        rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'mongo:27017'}]}).ok }"
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == au-per-001   # keep MongoDB on the node that holds its volume
+      restart_policy:
+        condition: on-failure
+
+  blogmd:
+    image: blogmd:latest            # Swarm ignores `build:`; build/push this image to each node or a registry
+    build: .
+    depends_on:                      # compose waits for the replica set; Swarm ignores this, and the
+      mongo:                         # app instead retries the database for DB_WAIT_SECONDS at startup
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "mongodb://mongo:27017/blogmd?replicaSet=rs0"
+      MEDIA_URL: "gridfs://"         # uploads stored in MongoDB (GridFS); or file:///data/media + a volume
+      SITE_NAME: "Mitch Naake"
+      ADMIN_USERNAME: mitch          # the imported author; use any name to create a fresh admin
+      ADMIN_PASSWORD_FILE: /run/secrets/blogmd_admin_password
+      # ADMIN_PASSWORD: "..."        # alternative to the secret (visible in `docker inspect`)
+
+      # served over HTTPS (Cloudflare) through Traefik:
+      SESSION_COOKIE_SECURE: "true"
+      TRUST_PROXY: "1"               # one proxy hop (Traefik) in front of the app
+      REAL_IP_HEADER: CF-Connecting-IP   # only safe if the origin is reachable solely via Cloudflare
+      # ALLOW_REGISTRATION: "true"   # let people create writer accounts themselves
+      # MAX_UPLOAD_MB: "50"
+      # WEB_LIMIT_CONCURRENCY: "0"  # 0 = auto (open-files limit minus a reserve); set lower to shed load with 503s
+    secrets:
+      - blogmd_admin_password
+    ulimits:                         # headroom for open sockets (uvicorn also caps concurrency)
+      nofile:
+        soft: 65536
+        hard: 65536
+    # volumes:
+    #   - ./content/static:/app/content/static:ro   # optional: swap icons/images without rebuilding
+    # ports: ["8001:8001"]           # only needed without Traefik
+    networks:
+      - backend
+      - traefik-public
+    deploy:
+      replicas: 1                    # stateless now (all data in MongoDB); more replicas work, but the
+                                     # login throttle is per replica, so keep 1 unless you need more
+      placement:
+        constraints:
+          - node.hostname == au-per-001
+      restart_policy:
+        condition: on-failure
+      labels:                        # Swarm: Traefik reads deploy.labels. Plain compose: move these to service-level `labels:`
+        - traefik.enable=true
+        - traefik.docker.network=traefik-public
+        - traefik.http.routers.blogmd.rule=Host(`blog.mitch.rocks`)
+        - traefik.http.routers.blogmd.entrypoints=websecure
+        - traefik.http.services.blogmd.loadbalancer.server.port=8001
+        # Traefik's default body limit is unlimited; if you add a buffering middleware,
+        # allow at least MAX_UPLOAD_MB for drag-and-drop uploads.
+
+volumes:
+  mongo-data:
+
+secrets:
+  blogmd_admin_password:
+    file: ./admin_password.txt
+
+networks:
+  backend:                           # internal: no route out to the internet or the host
+    internal: true
+  traefik-public:
+    external: true

@@ -6,8 +6,11 @@ __pycache__/
 *.env
 .env
 
-
 # runtime data
 content/blogmd.db
 content/blogmd.db-*
 content/media/
+
+# docker secrets
+admin_password.txt
+secrets/

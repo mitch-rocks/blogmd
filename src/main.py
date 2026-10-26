@@ -2,7 +2,7 @@ import sys
 
 try:
     from mdserver.cli import main
-    import flask, markdown, frontmatter, nh3  # noqa: F401  (fail fast with a helpful message)
+    import fastapi, uvicorn, pymongo, markdown, frontmatter, nh3  # noqa: F401  (fail fast with a helpful message)
 except ModuleNotFoundError as e:
     sys.exit(
         f'Missing package "{e.name}" for the Python running this script:\n'

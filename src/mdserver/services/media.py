@@ -1,6 +1,7 @@
 """Upload handling: validation, hashing, metadata extraction, storage."""
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import re
 import tempfile
@@ -80,23 +81,20 @@ def _image_size(fp: BinaryIO) -> tuple[int | None, int | None]:
         fp.seek(0)
 
 
-def save_upload(db: Database, files: FileStore, owner: User, stream: BinaryIO, filename: str,
-                max_bytes: int) -> tuple[Media, bool]:
+def _inspect(stream: BinaryIO, filename: str, max_bytes: int):
     """
-    Store an uploaded file and record its metadata.
-    Returns (media, created) - created is False when an identical file by the
-    same owner already existed and was reused.
+    CPU/disk-bound part of an upload (run in a worker thread): validate the type, copy to a
+    temp file while hashing and size-checking, sniff magic bytes, read image dimensions.
+    Returns (tmp_file, mime, ext, size, sha256, width, height); the caller closes tmp_file.
     """
-    filename = (filename or 'upload').replace('\\', '/').rsplit('/', 1)[-1].strip()[:200] or 'upload'
     ext = extension_of(filename)
     mime = ALLOWED_TYPES.get(ext)
     if not mime:
         raise UploadError(f'.{ext or "?"} files are not allowed. '
                           f'Allowed: {", ".join(sorted(ALLOWED_TYPES))}')
-
-    sha, size = hashlib.sha256(), 0
-    with tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024) as tmp:
-        head = b''
+    sha, size, head = hashlib.sha256(), 0, b''
+    tmp = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024)
+    try:
         while chunk := stream.read(1024 * 256):
             if not head:
                 head = chunk[:512]
@@ -108,37 +106,51 @@ def save_upload(db: Database, files: FileStore, owner: User, stream: BinaryIO, f
         if size == 0:
             raise UploadError('File is empty.')
         _check_magic(mime, head)
-        digest = sha.hexdigest()
-
-        existing = db.media.find_by_hash(owner.id, digest)
-        if existing and files.exists(existing.storage_key):
-            return existing, False
-
         width = height = None
         if mime.startswith('image/') and mime != 'image/svg+xml':
             width, height = _image_size(tmp)
             if Image is not None and width is None:
                 raise UploadError('Image could not be decoded.')
+        tmp.seek(0)
+        return tmp, mime, ext, size, sha.hexdigest(), width, height
+    except BaseException:
+        tmp.close()
+        raise
 
+
+async def save_upload(db: Database, files: FileStore, owner: User, stream: BinaryIO, filename: str,
+                      max_bytes: int) -> tuple[Media, bool]:
+    """
+    Store an uploaded file and record its metadata.
+    Returns (media, created) - created is False when an identical file by the
+    same owner already existed and was reused.
+    """
+    filename = (filename or 'upload').replace('\\', '/').rsplit('/', 1)[-1].strip()[:200] or 'upload'
+    tmp, mime, ext, size, digest, width, height = await asyncio.to_thread(_inspect, stream, filename, max_bytes)
+    try:
+        existing = await db.media.find_by_hash(owner.id, digest)
+        if existing and await files.exists(existing.storage_key):
+            return existing, False
         now = utcnow()
         key = f'{now:%Y/%m}/{uuid.uuid4().hex}.{ext}'
-        tmp.seek(0)
-        files.save(key, tmp)
+        await files.save(key, tmp)
+    finally:
+        tmp.close()
 
     try:
-        media = db.media.create(Media(
+        media = await db.media.create(Media(
             owner_id=owner.id, original_name=filename, storage_key=key, mime_type=mime,
             size_bytes=size, sha256=digest, width=width, height=height, created_at=now,
         ))
-    except Exception:
-        files.delete(key)
+    except BaseException:
+        await files.delete(key)
         raise
     return media, True
 
 
-def delete_media(db: Database, files: FileStore, media: Media) -> None:
-    db.media.delete(media.id)
-    files.delete(media.storage_key)
+async def delete_media(db: Database, files: FileStore, media: Media) -> None:
+    await db.media.delete(media.id)
+    await files.delete(media.storage_key)
 
 
 _MEDIA_REF = re.compile(r'/media/(\d+)-[0-9a-f]{16}\b')
@@ -148,11 +160,11 @@ def referenced_media_ids(markdown_text: str) -> set[int]:
     return {int(m) for m in _MEDIA_REF.findall(markdown_text or '')}
 
 
-def sync_post_media(db: Database, post_id: int, markdown_text: str,
-                    allowed: Iterable[int] | None = None) -> list[int]:
+async def sync_post_media(db: Database, post_id: int, markdown_text: str,
+                          allowed: Iterable[int] | None = None) -> list[int]:
     """Record which media items a post embeds (the post_media link table)."""
     ids = referenced_media_ids(markdown_text)
     if allowed is not None:
         ids &= set(allowed)
-    db.posts.set_media(post_id, ids)
+    await db.posts.set_media(post_id, ids)
     return sorted(ids)

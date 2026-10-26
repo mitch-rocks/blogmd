@@ -66,8 +66,8 @@ def build_tree(posts: list[Post]) -> NavNode:
     return root
 
 
-def navigation(db: Database) -> NavNode:
-    return build_tree(db.posts.list(statuses=[PostStatus.PUBLISHED]))
+async def navigation(db: Database) -> NavNode:
+    return build_tree(await db.posts.list(statuses=[PostStatus.PUBLISHED]))
 
 
 def breadcrumbs(tree: NavNode, path: str) -> list[NavNode]:

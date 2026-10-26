@@ -72,15 +72,15 @@ class ImportReport:
                 f'posts updated: {len(self.posts_updated)}, skipped: {len(self.skipped)}')
 
 
-def import_authors(db: Database, author_dir: pathlib.Path, report: ImportReport) -> None:
+async def import_authors(db: Database, author_dir: pathlib.Path, report: ImportReport) -> None:
     if not author_dir.is_dir():
         return
     for f in sorted(author_dir.glob('*.json')):
         username = f.stem.lower()
-        if db.users.get_by_username(username):
+        if await db.users.get_by_username(username):
             continue
         data = json.loads(f.read_text(encoding='utf-8'))
-        db.users.create(User(
+        await db.users.create(User(
             username=username,
             display_name=data.get('name', username),
             avatar_url=data.get('avatar', '') or '',
@@ -91,9 +91,9 @@ def import_authors(db: Database, author_dir: pathlib.Path, report: ImportReport)
         report.users_created.append(username)
 
 
-def import_markdown_file(db: Database, md_file: pathlib.Path, path: str, report: ImportReport,
+async def import_markdown_file(db: Database, md_file: pathlib.Path, path: str, report: ImportReport,
                          overwrite: bool = False, status: PostStatus = PostStatus.PUBLISHED) -> None:
-    existing = db.posts.get_by_path(path)
+    existing = await db.posts.get_by_path(path)
     if existing and not overwrite:
         report.skipped.append(f'{path or "/"} (already exists)')
         return
@@ -107,7 +107,7 @@ def import_markdown_file(db: Database, md_file: pathlib.Path, path: str, report:
 
     author = None
     if meta.get('author'):
-        author = db.users.get_by_username(str(meta['author']).lower())
+        author = await db.users.get_by_username(str(meta['author']).lower())
 
     mtime = datetime.fromtimestamp(md_file.stat().st_mtime, tz=timezone.utc).replace(microsecond=0)
     created = parse_date(meta.get('created_utc') or meta.get('created')) or mtime
@@ -125,18 +125,18 @@ def import_markdown_file(db: Database, md_file: pathlib.Path, path: str, report:
     post.published_at = created if post.status != PostStatus.DRAFT else None
 
     if existing:
-        db.posts.update(post)
+        await db.posts.update(post)
         report.posts_updated.append(path or '/')
     else:
-        db.posts.create(post)
+        await db.posts.create(post)
         report.posts_created.append(path or '/')
 
 
-def import_content(db: Database, root: pathlib.Path, overwrite: bool = False) -> ImportReport:
+async def import_content(db: Database, root: pathlib.Path, overwrite: bool = False) -> ImportReport:
     report = ImportReport()
     root = pathlib.Path(root)
-    with db.transaction():
-        import_authors(db, root / 'author', report)
+    async with db.transaction():
+        await import_authors(db, root / 'author', report)
 
         blog_dir = root / 'blog'
         if blog_dir.is_dir():
@@ -150,13 +150,13 @@ def import_content(db: Database, root: pathlib.Path, overwrite: bool = False) ->
                     continue
                 chosen[p] = f
             for p, f in chosen.items():
-                import_markdown_file(db, f, p, report, overwrite)
+                await import_markdown_file(db, f, p, report, overwrite)
 
         # error pages live under the hidden _system/ prefix
         err_dir = root / 'error'
         if err_dir.is_dir():
             for f in sorted(err_dir.glob('*.md')):
-                import_markdown_file(db, f, f'_system/{f.stem}', report, overwrite,
+                await import_markdown_file(db, f, f'_system/{f.stem}', report, overwrite,
                                      status=PostStatus.UNLISTED)
     log.info('content import: %s', report)
     return report

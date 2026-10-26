@@ -40,7 +40,7 @@
         <a class="btn btn-sm" href="{{ url_for('writer.edit_post', post_id=post.id) }}">Edit page</a>
         {% endif %}
       {% else %}
-        <a class="foot-link" href="{{ url_for('writer.login', next=request.path) }}"><span class="glyph">✎</span><span>Writers area</span></a>
+        <a class="foot-link" href="{{ url_for('writer.login', next=request.url.path) }}"><span class="glyph">✎</span><span>Writers area</span></a>
       {% endif %}
     </div>
   </aside>

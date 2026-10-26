@@ -15,8 +15,8 @@
       <span class="rail-text"><strong>Writers area</strong><small>{{ site_name }}</small></span>
     </a>
     <nav class="rail-nav">
-      {% for endpoint, glyph, label in nav_items %}
-      <a href="{{ url_for(endpoint) }}" class="rail-link{% if request.endpoint == endpoint %} is-active{% endif %}" title="{{ label }}" {% if request.endpoint == endpoint %}aria-current="page"{% endif %}>
+      {% for ep, glyph, label in nav_items %}
+      <a href="{{ url_for(ep) }}" class="rail-link{% if endpoint == ep %} is-active{% endif %}" title="{{ label }}" {% if endpoint == ep %}aria-current="page"{% endif %}>
         <span class="glyph" aria-hidden="true">{{ glyph }}</span><span class="rail-text">{{ label }}</span>
       </a>
       {% endfor %}
