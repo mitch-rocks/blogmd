@@ -1,7 +1,7 @@
 """
 Storage backend registry.
 
-    db    = await open_database('mongodb://mongo:27017/blogmd?replicaSet=rs0')
+    db    = await open_database('mongodb://mongo:27017/blogmd')
     files = open_file_store('gridfs://', db)        # or 'file:///data/media'
 
 Backends register themselves by URL scheme, so swapping databases is a config change:

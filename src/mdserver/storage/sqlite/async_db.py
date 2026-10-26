@@ -103,6 +103,8 @@ class SQLiteDatabase(Database):
             finally:
                 self._in_tx.reset(token)
 
+    supports_transactions = True
+
     async def migrate(self) -> None:
         await self._run(self._sync.migrate)
 

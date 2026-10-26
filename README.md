@@ -18,8 +18,8 @@ docker stack deploy -c docker-compose.yml blogmd
 
 This starts two services:
 
-* **mongo** — MongoDB 8.0 as a single-node replica set (needed for transactions). Its health check
-  initiates the replica set on first start. It is only on a private `backend` network: no published port.
+* **mongo** — a single standalone MongoDB 8.0 server. It is only on a private `backend` network:
+  no published port.
   All data lives in the `mongo-data` volume — back that up (e.g. `mongodump`).
 * **blogmd** — the app. It waits for MongoDB, imports `content/` into an empty database, makes sure an
   **admin account** exists, and serves on port 8001 (behind Traefik in `docker-compose.yml`). It keeps no
@@ -58,7 +58,7 @@ Without `DATABASE_URL` it uses a local **SQLite** file (`content/blogmd.db`) and
 `content/media`, so nothing else needs installing. To use MongoDB locally:
 
 ```bash
-DATABASE_URL="mongodb://localhost:27017/blogmd?replicaSet=rs0" MEDIA_URL="gridfs://" python src/main.py
+DATABASE_URL="mongodb://localhost:27017/blogmd" MEDIA_URL="gridfs://" python src/main.py
 ```
 
 > **Windows:** if you have more than one Python installed, `py` and `pip` may point at different ones
@@ -120,7 +120,7 @@ Environment variables (a `.env` file is read too, see `.env.example`):
 
 | Variable                | Default                              | Purpose |
 | ----------------------- | ------------------------------------ | ------- |
-| `DATABASE_URL`          | `sqlite:///content/blogmd.db` (image: `mongodb://mongo:27017/blogmd?replicaSet=rs0`) | Storage backend; the URL scheme picks it (`mongodb://`, `mongodb+srv://`, `sqlite://`) |
+| `DATABASE_URL`          | `sqlite:///content/blogmd.db` (image: `mongodb://mongo:27017/blogmd`) | Storage backend; the URL scheme picks it (`mongodb://`, `mongodb+srv://`, `sqlite://`) |
 | `MEDIA_URL`             | `file://content/media` (image: `gridfs://`) | Uploaded bytes: `gridfs://` (in MongoDB) or `file://<dir>` |
 | `DB_WAIT_SECONDS`       | `60`                                 | How long startup retries an unreachable database |
 | `CONTENT_PATH`          | `content` (next to `src/`)           | Markdown import source + `/static/` files |
@@ -153,7 +153,7 @@ src/mdserver/
         base.py            async Database + UserRepository / PostRepository / MediaRepository /
                            SettingsRepository ABCs, FileStore ABC
         __init__.py        backend registry: open_database(url), open_file_store(url, db)
-        mongo.py           MongoDB backend (pymongo async driver, transactions on replica sets)
+        mongo.py           MongoDB backend (pymongo async driver; standalone server or replica set)
         sqlite/            SQLite backend (sync engine on a dedicated thread, versioned migrations)
         files.py           GridFSStore (gridfs://) and LocalFileStore (file://)
     services/              importer, navigation tree, media uploads, auth, admin bootstrap
@@ -175,7 +175,8 @@ The web layer only calls the repository interfaces, so nothing outside `storage/
 * `counters` — integer id sequences, so URLs like `/write/edit/12` and `/media/3-…` stay short and stable
 
 Indexes are created on startup. Multi-document writes (e.g. saving a post and its media links) run in
-a transaction when MongoDB is a replica set, as in `docker-compose.yml`.
+a transaction when MongoDB is a replica set. `docker-compose.yml` runs a single standalone server,
+where those writes simply run one after another (fine for one instance).
 
 ### Adding another database
 
@@ -225,4 +226,5 @@ python -m pytest
 ```
 
 The MongoDB tests run against `TEST_MONGO_URL` (default `mongodb://127.0.0.1:27017/?directConnection=true`,
-must be a replica set) and are skipped if no server is reachable; SQLite tests always run.
+a replica set also runs the transaction-rollback tests; they're skipped on a standalone server) and are
+skipped if no server is reachable; SQLite tests always run.

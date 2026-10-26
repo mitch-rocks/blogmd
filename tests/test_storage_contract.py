@@ -152,6 +152,8 @@ async def test_settings(db):
 
 
 async def test_transaction_rolls_back(db):
+    if not db.supports_transactions:
+        pytest.skip("backend has no atomic transactions (standalone MongoDB)")
     with pytest.raises(RuntimeError):
         async with db.transaction():
             await make_user(db, 'rolled')
@@ -175,7 +177,8 @@ async def test_nested_transaction_joins_outer(db):
             await make_user(db, 'outer2')
             async with db.transaction():
                 await make_user(db, 'outer')        # duplicate -> Conflict escapes both blocks
-    assert await db.users.get_by_username('outer2') is None
+    if db.supports_transactions:
+        assert await db.users.get_by_username('outer2') is None
 
 
 async def test_concurrent_tasks(db):
@@ -188,6 +191,8 @@ async def test_concurrent_tasks(db):
 
 
 async def test_transactions_isolated_from_other_tasks(db):
+    if not db.supports_transactions:
+        pytest.skip("backend has no atomic transactions (standalone MongoDB)")
     gate = asyncio.Event()
 
     async def failing():

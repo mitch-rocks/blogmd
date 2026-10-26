@@ -168,6 +168,9 @@ class Database(ABC):
     async def ping(self) -> None:
         """Raise if the backend is unreachable (used by /healthz)."""
 
+    #: whether transaction() is atomic (False e.g. for a standalone MongoDB server)
+    supports_transactions: bool = True
+
     @abstractmethod
     def transaction(self) -> AbstractAsyncContextManager[None]:
         """

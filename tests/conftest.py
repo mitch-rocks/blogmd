@@ -10,8 +10,8 @@ sys.path.insert(0, str(ROOT / 'src'))
 
 from mdserver.storage import open_database, open_file_store  # noqa: E402
 
-# MongoDB used by the tests (each test gets its own throwaway database). Needs a replica set
-# for the transaction tests:  mongod --replSet rs0  +  rs.initiate()
+# MongoDB used by the tests (each test gets its own throwaway database). Standalone works;
+# a replica set (mongod --replSet rs0 + rs.initiate()) also runs the rollback tests.
 MONGO_URL = os.environ.get('TEST_MONGO_URL', 'mongodb://127.0.0.1:27017/?directConnection=true')
 
 

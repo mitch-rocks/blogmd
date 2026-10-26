@@ -21,7 +21,7 @@ RUN useradd --system --uid 10001 --no-create-home --home-dir /app blogmd \
  && chown blogmd:blogmd /data
 
 # defaults match docker-compose.yml (MongoDB service named "mongo", uploads in GridFS)
-ENV DATABASE_URL=mongodb://mongo:27017/blogmd?replicaSet=rs0 \
+ENV DATABASE_URL=mongodb://mongo:27017/blogmd \
     MEDIA_URL=gridfs:// \
     HOST=0.0.0.0 \
     PORT=8001

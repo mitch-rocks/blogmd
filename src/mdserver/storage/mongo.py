@@ -1,7 +1,7 @@
 """
 MongoDB backend (pymongo's native async driver).
 
-    DATABASE_URL=mongodb://mongo:27017/blogmd?replicaSet=rs0
+    DATABASE_URL=mongodb://mongo:27017/blogmd
 
 Collections
     users     {_id:int, username, username_ci, display_name, role, avatar_url, bio, password_hash, created_at}
@@ -12,8 +12,9 @@ Collections
     settings  {_id:key, value}
     counters  {_id:collection, seq}      integer ids keep URLs like /write/edit/12 stable
 
-Transactions need a replica set (a single-node one is fine - see docker-compose.yml). Against a
-standalone server, transaction() still works as a block but writes aren't atomic (logged once).
+Works against a single standalone server (as in docker-compose.yml). Multi-document transactions
+need a replica set; against a standalone server transaction() groups the writes without making
+them atomic, which is fine for a one-instance blog.
 """
 from __future__ import annotations
 
@@ -294,8 +295,12 @@ class MongoDatabase(Database):
         hello = await self.client.admin.command('hello')
         self._tx_supported = bool(hello.get('setName')) or hello.get('msg') == 'isdbgrid'
         if not self._tx_supported:
-            log.warning('MongoDB is a standalone server: multi-document writes are not atomic. '
-                        'Run it as a replica set (even single-node) for transactions.')
+            log.info('MongoDB is a single standalone server: saves are not wrapped in multi-document '
+                     'transactions (fine for one instance; a replica set would make them atomic).')
+
+    @property
+    def supports_transactions(self) -> bool:
+        return bool(self._tx_supported)
 
     async def ping(self) -> None:
         await self.client.admin.command('ping')

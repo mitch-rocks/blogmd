@@ -11,7 +11,7 @@ services:
   blogmd:
     image: ghcr.io/nnitch/blogmd:latest
     environment:
-      DATABASE_URL: "mongodb://mongo:27017/blogmd?replicaSet=rs0"
+      DATABASE_URL: "mongodb://mongo:27017/blogmd"
       MEDIA_URL: "gridfs://"
       SITE_NAME: "Mitch Naake"
       ADMIN_USERNAME: mitch
@@ -48,35 +48,25 @@ services:
         - traefik.http.services.blogmd.loadbalancer.server.port=8001
 
   mongo:
-    image: mongo:8.0
-    # Swarm only adds a task to DNS once it is healthy, but the health check initiates the replica
-    # set as "mongo:27017", which mongod requires to resolve to itself. Setting the container's own
-    # hostname makes that resolve locally (/etc/hosts), breaking the chicken-and-egg wait.
-    hostname: mongo
-    # single-node replica set: enables transactions (atomic post + media-link saves)
-    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    image: mongo:8.0                       # one standalone MongoDB server (no replica set)
     # on a small host, cap MongoDB's cache (default is ~50% of RAM):
-    # command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--wiredTigerCacheSizeGB", "0.5"]
+    # command: ["mongod", "--wiredTigerCacheSizeGB", "0.5"]
     volumes:
       - mongo-data:/data/db
     networks:
       - backend                            # private: only BlogMD can reach it, no published port
     healthcheck:
-      # healthy once the replica set exists; the first run creates it
-      test: >-
-        mongosh --quiet --eval "try { rs.status().ok } catch (e) {
-        rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'mongo:27017'}]}).ok }"
-      interval: 5s
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
       timeout: 10s
-      retries: 30
+      retries: 6
       start_period: 20s
     stop_grace_period: 60s                 # let mongod flush and shut down cleanly
     deploy:
       mode: replicated
       replicas: 1
-      # DNS round-robin instead of Swarm's virtual IP: "mongo" resolves straight to the container.
-      # Needed for the replica set to recognise its own address, and avoids IPVS silently dropping
-      # database connections that sit idle for more than 15 minutes.
+      # DNS round-robin instead of Swarm's virtual IP: avoids IPVS silently dropping database
+      # connections that sit idle for more than 15 minutes
       endpoint_mode: dnsrr
       placement:
         constraints:
