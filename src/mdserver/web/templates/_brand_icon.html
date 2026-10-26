@@ -1,0 +1,2 @@
+{# Brand mark: the site icon (content/static/icon.png or app.ico), else the blue square. #}
+{% if brand_icon_url %}<img class="brand-icon" src="{{ brand_icon_url }}" alt="" width="32" height="32" decoding="async">{% else %}<span class="brand-box" aria-hidden="true"></span>{% endif %}

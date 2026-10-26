@@ -1,0 +1,57 @@
+{% extends 'writer/layout.html' %}
+{% block title %}Posts · Writers area{% endblock %}
+{% block highlight %}{% endblock %}
+{% block main %}
+<header class="w-head">
+  <div>
+    <span class="label">Writers area</span>
+    <h1>{{ 'All posts' if current_user.is_admin else 'Your posts' }}</h1>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('writer.new_post') }}">+ New post</a>
+</header>
+
+<section class="stats">
+  <a class="stat{% if status == 'published' %} is-active{% endif %}" href="?status=published"><span class="label">Published</span><strong>{{ stats.published }}</strong></a>
+  <a class="stat{% if status == 'draft' %} is-active{% endif %}" href="?status=draft"><span class="label">Drafts</span><strong>{{ stats.draft }}</strong></a>
+  <a class="stat{% if status == 'unlisted' %} is-active{% endif %}" href="?status=unlisted"><span class="label">Unlisted</span><strong>{{ stats.unlisted }}</strong></a>
+  <a class="stat" href="{{ url_for('writer.media_library') }}"><span class="label">Media files</span><strong>{{ stats.media }}</strong></a>
+</section>
+
+<form class="toolbar-row" method="get">
+  <input class="input" type="search" name="q" value="{{ q }}" placeholder="Search title, path, description…">
+  <select class="input" name="status" onchange="this.form.submit()">
+    <option value="">All statuses</option>
+    {% for s in ['published', 'draft', 'unlisted'] %}<option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ s|title }}</option>{% endfor %}
+  </select>
+  <button class="btn" type="submit">Filter</button>
+  {% if q or status %}<a class="btn btn-ghost" href="{{ url_for('writer.dashboard') }}">Clear</a>{% endif %}
+</form>
+
+<div class="panel table-panel">
+  {% if posts %}
+  <table class="data-table">
+    <thead><tr><th>Title</th><th>Path</th><th>Status</th>{% if current_user.is_admin %}<th>Author</th>{% endif %}<th>Updated</th><th><span class="sr-only">Actions</span></th></tr></thead>
+    <tbody>
+    {% for p in posts %}
+      <tr>
+        <td><a class="row-title" href="{{ url_for('writer.edit_post', post_id=p.id) }}">{{ p.title }}</a></td>
+        <td><code class="path">/{{ p.path }}{{ '/' if p.path else '' }}</code></td>
+        <td><span class="pill pill-{{ p.status.value }}">{{ p.status.value }}</span></td>
+        {% if current_user.is_admin %}<td>{{ authors[p.author_id].display_name if p.author_id in authors else '—' }}</td>{% endif %}
+        <td class="nowrap"><time datetime="{{ p.updated_at.isoformat() }}" data-relative>{{ p.updated_at.strftime('%d %b %Y') }}</time></td>
+        <td class="actions">
+          <a class="btn btn-sm" href="{{ url_for('writer.edit_post', post_id=p.id) }}">Edit</a>
+          <a class="btn btn-sm btn-ghost" href="{{ p.url }}" target="_blank" rel="noopener">View</a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">
+    <p><strong>No posts {{ 'match' if q or status else 'yet' }}.</strong></p>
+    <a class="btn btn-primary" href="{{ url_for('writer.new_post') }}">Write your first post</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

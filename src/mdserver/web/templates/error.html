@@ -1,0 +1,11 @@
+{% extends 'site.html' %}
+{% block title %}{{ code }} · {{ site_name }}{% endblock %}
+{% block content %}
+<article class="panel post error-panel">
+  <header class="post-head">
+    <span class="label">Error {{ code }}</span>
+    <h1 class="post-title">{{ message }}</h1>
+  </header>
+  <div class="prose"><p><a href="/blog/">Back to the blog home</a></p></div>
+</article>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends 'writer/layout.html' %}
+{% block title %}Media · Writers area{% endblock %}
+{% block highlight %}{% endblock %}
+{% block main %}
+<header class="w-head">
+  <div><span class="label">Writers area</span><h1>Media library</h1></div>
+  <div class="head-actions">
+    {% if current_user.is_admin %}
+    <label class="check"><input type="checkbox" id="scope-all"> Everyone's files</label>
+    {% endif %}
+    <button class="btn btn-primary" type="button" id="lib-upload">⇪ Upload</button>
+  </div>
+</header>
+
+<div class="lib-drop" id="lib-drop">
+  <strong>Drop files here</strong>
+  <span>Images, video, audio, PDFs and more · up to {{ max_upload_mb }} MB each. Metadata (type, size, dimensions, SHA-256, uploader) is stored in the database.</span>
+</div>
+
+<div class="lib-layout">
+  <section>
+    <div class="media-filter seg" role="group" aria-label="Filter media">
+      <button type="button" data-kind="" class="is-on">All</button>
+      <button type="button" data-kind="image">Images</button>
+      <button type="button" data-kind="video">Video</button>
+      <button type="button" data-kind="audio">Audio</button>
+      <button type="button" data-kind="application">Documents</button>
+    </div>
+    <div class="media-grid lib-grid" id="lib-grid"></div>
+    <button type="button" class="btn btn-ghost btn-block" id="lib-more" hidden>Load more</button>
+  </section>
+  <aside class="panel lib-detail" id="lib-detail">
+    <p class="dim pad">Select a file to see its details.</p>
+  </aside>
+</div>
+<input type="file" id="file-input" multiple hidden accept="{{ accept }}">
+{% endblock %}
+{% block page_scripts %}
+<script src="{{ url_for('static', filename='js/media-library.js') }}"></script>
+{% endblock %}

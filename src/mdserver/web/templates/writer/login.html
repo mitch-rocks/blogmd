@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Sign in · Writers area{% endblock %}
+{% block highlight %}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/writer.css') }}">{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block body %}
+<main class="auth-wrap">
+  <button type="button" class="icon-btn theme-toggle auth-theme" data-theme-toggle aria-label="Theme: System" title="Theme: System"><svg class="ti ti-system" aria-hidden="true" viewBox="0 0 16 16" width="15" height="15"><rect x="1.75" y="2.75" width="12.5" height="8.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 14h5M8 11.5V14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><svg class="ti ti-light" aria-hidden="true" viewBox="0 0 16 16" width="15" height="15"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><svg class="ti ti-dark" aria-hidden="true" viewBox="0 0 16 16" width="15" height="15"><path d="M13.5 9.6A5.8 5.8 0 0 1 6.4 2.5a5.8 5.8 0 1 0 7.1 7.1z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></button>
+  <a href="/blog/" class="auth-back">← {{ site_name }}</a>
+  <form class="panel auth-box" method="post" novalidate>
+    <div class="auth-head">
+      {% include '_brand_icon.html' %}
+      <div>
+        <span class="label">Writers area</span>
+        <h1>Sign in</h1>
+      </div>
+    </div>
+    <div class="auth-body">
+      {% if error %}<div class="notice notice-error" role="alert"><strong>Error</strong>{{ error }}</div>{% endif %}
+      {% if no_accounts %}
+      <div class="notice notice-warn"><strong>Setup</strong>No account has a password yet. On the server, run
+        <code>python src/main.py set-password &lt;username&gt;</code> (imported authors) or
+        <code>python src/main.py create-user &lt;username&gt; --admin</code>.</div>
+      {% endif %}
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="field"><span>Username</span>
+        <input name="username" value="{{ username }}" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+      </label>
+      <label class="field"><span>Password</span>
+        <input name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <button class="btn btn-primary btn-block" type="submit">Sign in →</button>
+      {% if allow_registration %}
+      <p class="hint center">No account? <a href="{{ url_for('writer.register') }}">Create one</a></p>
+      {% endif %}
+    </div>
+  </form>
+</main>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/site.js') }}" defer></script>{% endblock %}

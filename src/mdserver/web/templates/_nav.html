@@ -1,0 +1,27 @@
+{# Recursive sidebar tree. `node` is a NavNode, `current` the current path. #}
+{% macro tree(node, current, depth=0) %}
+<ul class="tree depth-{{ depth }}">
+  {% for child in node.children %}
+    {% set active = child.path == current %}
+    {% set open = child.contains(current) and current != '' %}
+    <li class="tree-item{% if child.is_folder %} is-folder{% endif %}" data-label="{{ child.label|lower }} {{ child.title|lower }}">
+      {% if child.is_folder %}
+      <details {% if open or depth == 0 and loop.length < 4 %}open{% endif %} data-path="{{ child.path }}">
+        <summary>
+          <span class="twisty" aria-hidden="true"></span>
+          <a href="{{ child.url }}" class="tree-link{% if active %} is-active{% endif %}" {% if active %}aria-current="page"{% endif %}>
+            <span class="glyph" aria-hidden="true">▣</span>{{ child.label }}
+          </a>
+          <span class="count">{{ child.children|length }}</span>
+        </summary>
+        {{ tree(child, current, depth + 1) }}
+      </details>
+      {% else %}
+      <a href="{{ child.url }}" class="tree-link leaf{% if active %} is-active{% endif %}" {% if active %}aria-current="page"{% endif %}>
+        <span class="glyph" aria-hidden="true">□</span>{{ child.label }}
+      </a>
+      {% endif %}
+    </li>
+  {% endfor %}
+</ul>
+{% endmacro %}

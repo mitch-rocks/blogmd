@@ -1,0 +1,33 @@
+{% extends 'writer/layout.html' %}
+{% block title %}Account · Writers area{% endblock %}
+{% block highlight %}{% endblock %}
+{% block main %}
+<header class="w-head">
+  <div><span class="label">Writers area</span><h1>Account</h1></div>
+</header>
+<div class="two-col">
+  <form class="panel form-panel" method="post">
+    <h2 class="panel-title">Profile</h2>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="profile">
+    <div class="profile-preview">
+      <img class="avatar" src="{{ user.avatar_url or url_for('static', filename='img/avatar.svg') }}" alt="">
+      <div><strong>{{ user.display_name }}</strong><br><code>@{{ user.username }}</code> · {{ user.role.value }}</div>
+    </div>
+    <label class="field"><span>Display name</span><input name="display_name" value="{{ user.display_name }}" maxlength="80" required></label>
+    <label class="field"><span>Avatar URL</span><input name="avatar_url" value="{{ user.avatar_url }}" placeholder="https://… or /media/…" maxlength="500">
+      <span class="hint">Tip: upload an image in Media and paste its URL here.</span></label>
+    <label class="field"><span>Bio</span><textarea name="bio" rows="3" maxlength="1000">{{ user.bio }}</textarea></label>
+    <button class="btn btn-primary" type="submit">Save profile</button>
+  </form>
+  <form class="panel form-panel" method="post">
+    <h2 class="panel-title">Password</h2>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="password">
+    <label class="field"><span>Current password</span><input type="password" name="current_password" autocomplete="current-password" required></label>
+    <label class="field"><span>New password</span><input type="password" name="new_password" autocomplete="new-password" minlength="10" required>
+      <span class="hint">At least 10 characters. Changing it signs out your other sessions.</span></label>
+    <button class="btn" type="submit">Change password</button>
+  </form>
+</div>
+{% endblock %}

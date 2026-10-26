@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% from '_nav.html' import tree %}
+{% block body_class %}site{% endblock %}
+{% block body %}
+<div class="shell">
+  <aside class="sidebar" id="sidebar" aria-label="Site navigation">
+    <div class="brand">
+      <a href="/blog/" class="brand-mark" aria-label="Home">
+        {% include '_brand_icon.html' %}
+        <span class="brand-text">
+          <strong>{{ site_name }}</strong>
+          <small>blogmd</small>
+        </span>
+      </a>
+      <button class="icon-btn sidebar-close" type="button" data-sidebar-toggle aria-label="Close navigation">✕</button>
+    </div>
+
+    <label class="nav-filter">
+      <span class="sr-only">Filter pages</span>
+      <input type="search" placeholder="Filter pages…" data-nav-filter autocomplete="off">
+      <kbd>/</kbd>
+    </label>
+
+    <nav class="nav-scroll">
+      <a href="/blog/" class="tree-link home{% if current_path == '' %} is-active{% endif %}" {% if current_path == '' %}aria-current="page"{% endif %}>
+        <span class="glyph" aria-hidden="true">■</span>Home
+      </a>
+      {{ tree(nav, current_path) }}
+      <p class="nav-empty" hidden>No pages match.</p>
+    </nav>
+
+    <div class="sidebar-foot">
+      <button type="button" class="icon-btn theme-toggle" data-theme-toggle aria-label="Theme: System" title="Theme: System"><svg class="ti ti-system" aria-hidden="true" viewBox="0 0 16 16" width="15" height="15"><rect x="1.75" y="2.75" width="12.5" height="8.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 14h5M8 11.5V14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><svg class="ti ti-light" aria-hidden="true" viewBox="0 0 16 16" width="15" height="15"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><svg class="ti ti-dark" aria-hidden="true" viewBox="0 0 16 16" width="15" height="15"><path d="M13.5 9.6A5.8 5.8 0 0 1 6.4 2.5a5.8 5.8 0 1 0 7.1 7.1z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></button>
+      {% if current_user %}
+        <a class="foot-link" href="{{ url_for('writer.dashboard') }}">
+          <img src="{{ current_user.avatar_url or url_for('static', filename='img/avatar.svg') }}" alt="" class="avatar xs">
+          <span>Writers area</span>
+        </a>
+        {% if post is defined and post and (current_user.is_admin or post.author_id == current_user.id) %}
+        <a class="btn btn-sm" href="{{ url_for('writer.edit_post', post_id=post.id) }}">Edit page</a>
+        {% endif %}
+      {% else %}
+        <a class="foot-link" href="{{ url_for('writer.login', next=request.path) }}"><span class="glyph">✎</span><span>Writers area</span></a>
+      {% endif %}
+    </div>
+  </aside>
+  <div class="scrim" data-sidebar-toggle hidden></div>
+
+  <main class="main" id="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" type="button" data-sidebar-toggle aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">☰</button>
+      <ol class="crumbs" aria-label="Breadcrumb">
+        <li><a href="/blog/">blog</a></li>
+        {% for c in crumbs[1:] %}
+          <li>{% if loop.last %}<span aria-current="page">{{ c.name }}</span>{% else %}<a href="{{ c.url }}">{{ c.name }}</a>{% endif %}</li>
+        {% endfor %}
+      </ol>
+    </header>
+    {% block content %}{% endblock %}
+    <footer class="site-foot">
+      <span>{{ site_name }}</span>
+      <span>Powered by <a href="https://github.com/neutron-au/blogmd/">BlogMD</a></span>
+    </footer>
+  </main>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/site.js') }}" defer></script>
+{% endblock %}

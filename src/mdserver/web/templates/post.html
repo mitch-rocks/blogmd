@@ -1,0 +1,36 @@
+{% extends 'site.html' %}
+{% block title %}{{ post.title }} · {{ site_name }}{% endblock %}
+{% block meta %}
+    <meta property="og:title" content="{{ post.title }}">
+    <meta property="og:description" content="{{ post.description }}">
+    <meta name="description" content="{{ post.description }}">
+    {% if author %}<meta property="og:author" content="{{ author.display_name }}">
+    <meta property="og:image" content="{{ author.avatar_url }}">{% endif %}
+    <meta property="og:site_name" content="{{ site_name }}">
+{% endblock %}
+{% block content %}
+{% if post.status.value == 'draft' %}
+<div class="notice notice-warn"><strong>Draft</strong> Only you and admins can see this page until it's published.</div>
+{% endif %}
+<article class="panel post">
+  {% include '_post_header.html' %}
+  <div class="prose" id="post-body">
+    {{ body_html|safe }}
+  </div>
+</article>
+
+{% if node and node.children %}
+<section class="section-grid" aria-labelledby="in-section">
+  <h2 id="in-section" class="label">In this section</h2>
+  <div class="cards">
+    {% for child in node.children %}
+    <a class="card" href="{{ child.url }}">
+      <span class="card-kind">{{ 'Folder · %d'|format(child.children|length) if child.is_folder else 'Page' }}</span>
+      <strong>{{ child.title }}</strong>
+      <span class="card-path">/{{ child.path }}/</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

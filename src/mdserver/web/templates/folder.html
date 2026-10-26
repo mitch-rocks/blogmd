@@ -1,0 +1,21 @@
+{% extends 'site.html' %}
+{% block title %}{{ node.label }} · {{ site_name }}{% endblock %}
+{% block content %}
+<article class="panel post">
+  <header class="post-head">
+    <h1 class="post-title">{{ node.label }}</h1>
+    <p class="post-desc">{{ node.children|length }} item{{ '' if node.children|length == 1 else 's' }} in <code>/blog/{{ node.path }}/</code></p>
+  </header>
+</article>
+<section class="section-grid">
+  <div class="cards">
+    {% for child in node.children %}
+    <a class="card" href="{{ child.url }}">
+      <span class="card-kind">{{ 'Folder · %d'|format(child.children|length) if child.is_folder else 'Page' }}</span>
+      <strong>{{ child.title }}</strong>
+      <span class="card-path">/{{ child.path }}/</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

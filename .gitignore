@@ -1,6 +1,13 @@
 venv
--*
+.venv
 __pycache__/
 *.py[cod]
-content
+.pytest_cache/
 *.env
+.env
+
+
+# runtime data
+content/blogmd.db
+content/blogmd.db-*
+content/media/

@@ -1,0 +1,22 @@
+{# Shared by the public post page and the editor's live preview (which fills it via JS). #}
+<header class="post-head">
+  <h1 class="post-title" data-preview="title">{{ post.title if post else 'Untitled' }}</h1>
+  <p class="post-desc" data-preview="description" {% if not (post and post.description) %}hidden{% endif %}>{{ post.description if post else '' }}</p>
+  <dl class="post-meta">
+    <div class="meta-cell author-cell">
+      <img class="avatar" data-preview="avatar" src="{{ (author.avatar_url if author else '') or url_for('static', filename='img/avatar.svg') }}" alt="">
+      <div>
+        <dt>Author</dt>
+        <dd data-preview="author">{{ author.display_name if author else 'Unknown' }}</dd>
+      </div>
+    </div>
+    <div class="meta-cell">
+      <dt>Created</dt>
+      <dd data-preview="created"><time datetime="{{ post.created_at.isoformat() if post else '' }}">{{ (post.created_at if post else none)|ordinal_date }}</time></dd>
+    </div>
+    <div class="meta-cell">
+      <dt>Updated</dt>
+      <dd data-preview="updated"><time datetime="{{ post.updated_at.isoformat() if post else '' }}">{{ (post.updated_at if post and post.updated_at.date() != post.created_at.date() else none)|ordinal_date }}</time></dd>
+    </div>
+  </dl>
+</header>

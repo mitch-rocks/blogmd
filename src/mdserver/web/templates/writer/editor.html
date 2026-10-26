@@ -1,0 +1,125 @@
+{% extends 'writer/layout.html' %}
+{% block title %}{{ post.title if post else 'New post' }} · Editor{% endblock %}
+{% block writer_class %}editor-page{% endblock %}
+{% block main %}
+<div class="editor" id="editor" data-view="split">
+  <header class="ed-top">
+    <a class="icon-btn" href="{{ url_for('writer.dashboard') }}" title="Back to posts" aria-label="Back to posts">←</a>
+    <input class="ed-title" id="f-title" placeholder="Post title" value="{{ post.title if post else '' }}" maxlength="200" aria-label="Title" autocomplete="off">
+    <div class="ed-actions">
+      <span class="save-state" id="save-state" data-state="{{ 'saved' if post else 'new' }}">{{ 'Saved' if post else 'Not saved yet' }}</span>
+      <select class="input select-sm" id="f-status" aria-label="Status">
+        {% for s, label in [('draft', 'Draft'), ('published', 'Published'), ('unlisted', 'Unlisted')] %}
+        <option value="{{ s }}" {% if (post.status.value if post else 'draft') == s %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <div class="seg" role="group" aria-label="Layout">
+        <button type="button" data-view-btn="write" title="Editor only (Ctrl+1)">Write</button>
+        <button type="button" data-view-btn="split" title="Side by side (Ctrl+2)">Split</button>
+        <button type="button" data-view-btn="preview" title="Preview only (Ctrl+3)">Preview</button>
+      </div>
+      <button type="button" class="btn btn-sm" id="toggle-details" aria-expanded="{{ 'false' if post else 'true' }}" aria-controls="ed-details">⚙ Details</button>
+      <button type="button" class="btn btn-sm" id="toggle-media" aria-expanded="false" aria-controls="ed-media">▧ Media</button>
+      <a class="btn btn-sm btn-ghost" id="view-link" href="{{ post.url if post else '#' }}" target="_blank" rel="noopener" {% if not post %}hidden{% endif %}>View ↗</a>
+      <button type="button" class="btn btn-primary" id="save-btn" title="Save (Ctrl+S)">Save</button>
+    </div>
+  </header>
+
+  <section class="ed-details" id="ed-details" {% if post %}hidden{% endif %}>
+    <label class="field path-field">
+      <span>URL path</span>
+      <div class="path-input">
+        <span class="path-prefix">/blog/</span>
+        <input id="f-path" value="{{ post.path if post else (folder ~ '/' if folder else '') }}" placeholder="folder/my-post" spellcheck="false" autocomplete="off" {% if not post %}data-auto="1"{% endif %}>
+        <span class="path-suffix">/</span>
+      </div>
+      <span class="hint" id="path-msg">{% if not post %}Filled in from the title until you edit it. Use "/" for folders.{% endif %}</span>
+    </label>
+    <label class="field desc-field">
+      <span>Description</span>
+      <input id="f-description" value="{{ post.description if post else '' }}" maxlength="500" placeholder="Shown under the title and in link previews">
+    </label>
+    <label class="field order-field">
+      <span>Nav order</span>
+      <input id="f-order" type="number" value="{{ post.nav_order if post else 0 }}" step="1">
+    </label>
+    {% if post %}
+    <div class="field danger-field">
+      <span>Danger zone</span>
+      <button type="button" class="btn btn-danger btn-sm" id="delete-btn">Delete post</button>
+    </div>
+    {% endif %}
+  </section>
+
+  <div class="ed-body">
+    <section class="ed-pane ed-write" aria-label="Markdown editor">
+      <div class="ed-toolbar" role="toolbar" aria-label="Formatting">
+        <button type="button" data-md="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+        <button type="button" data-md="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+        <button type="button" data-md="strike" title="Strikethrough"><s>S</s></button>
+        <button type="button" data-md="mark" title="Highlight">==</button>
+        <span class="tb-sep"></span>
+        <button type="button" data-md="h2" title="Heading 2">H2</button>
+        <button type="button" data-md="h3" title="Heading 3">H3</button>
+        <button type="button" data-md="quote" title="Quote">❝</button>
+        <button type="button" data-md="ul" title="Bulleted list">•</button>
+        <button type="button" data-md="ol" title="Numbered list">1.</button>
+        <button type="button" data-md="task" title="Task list">☐</button>
+        <span class="tb-sep"></span>
+        <button type="button" data-md="link" title="Link (Ctrl+K)">🔗</button>
+        <button type="button" data-md="code" title="Inline code">`</button>
+        <button type="button" data-md="codeblock" title="Code block">{ }</button>
+        <button type="button" data-md="table" title="Table">▦</button>
+        <button type="button" data-md="hr" title="Divider">―</button>
+        <span class="tb-sep"></span>
+        <button type="button" data-md="upload" title="Upload & insert files">⇪ Upload</button>
+      </div>
+      <div class="ed-input-wrap" id="drop-target">
+        <textarea id="f-content" class="ed-input" spellcheck="true" placeholder="Write in Markdown…  Drag & drop or paste images, video, audio and files here." aria-label="Post content">{{ post.content if post else '' }}</textarea>
+        <div class="drop-overlay" aria-hidden="true"><div><strong>Drop to upload</strong><span>Files are stored in the media library and inserted at the cursor</span></div></div>
+      </div>
+      <footer class="ed-status">
+        <span id="st-words">0 words</span>
+        <span id="st-read">0 min read</span>
+        <span id="st-pos">Ln 1, Col 1</span>
+        <span class="grow"></span>
+        <span id="st-uploads" class="uploads"></span>
+      </footer>
+    </section>
+
+    <section class="ed-pane ed-preview" aria-label="Live preview">
+      <div class="pane-label"><span class="live-dot"></span>Live preview <span id="render-ms" class="dim"></span></div>
+      <div class="preview-scroll" id="preview-scroll">
+        <article class="panel post">
+          {% include '_post_header.html' %}
+          <div class="prose" id="preview">{% if not post %}<p class="dim">Start typing to see your post here.</p>{% endif %}</div>
+        </article>
+      </div>
+    </section>
+
+    <aside class="ed-media" id="ed-media" hidden aria-label="Media library">
+      <div class="media-head">
+        <strong>Media</strong>
+        <button type="button" class="icon-btn sm" id="close-media" aria-label="Close media panel">✕</button>
+      </div>
+      <button type="button" class="drop-tile" data-md="upload">
+        <strong>⇪ Upload files</strong><span>or drop them anywhere on the editor</span>
+      </button>
+      <div class="media-filter seg" role="group" aria-label="Filter media">
+        <button type="button" data-kind="" class="is-on">All</button>
+        <button type="button" data-kind="image">Images</button>
+        <button type="button" data-kind="video">Video</button>
+        <button type="button" data-kind="audio">Audio</button>
+      </div>
+      <p class="hint">Click to insert at the cursor, or drag into the text.</p>
+      <div class="media-grid" id="media-grid"></div>
+      <button type="button" class="btn btn-sm btn-ghost btn-block" id="media-more" hidden>Load more</button>
+    </aside>
+  </div>
+</div>
+<input type="file" id="file-input" multiple hidden accept="{{ accept }}">
+{% endblock %}
+{% block page_scripts %}
+<script>window.EDITOR_POST = {{ post_data|tojson }}; window.EDITOR_AUTHOR = {{ {'display_name': author.display_name, 'avatar_url': author.avatar_url} |tojson if author else 'null' }};</script>
+<script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+{% endblock %}
