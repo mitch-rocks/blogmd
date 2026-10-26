@@ -10,7 +10,7 @@
         <summary>
           <span class="twisty" aria-hidden="true"></span>
           <a href="{{ child.url }}" class="tree-link{% if active %} is-active{% endif %}" {% if active %}aria-current="page"{% endif %}>
-          {{ child.label }}
+            {{ child.label }}
           </a>
           <span class="count">{{ child.children|length }}</span>
         </summary>
@@ -18,7 +18,7 @@
       </details>
       {% else %}
       <a href="{{ child.url }}" class="tree-link leaf{% if active %} is-active{% endif %}" {% if active %}aria-current="page"{% endif %}>
-      {{ child.label }}
+        {{ child.label }}
       </a>
       {% endif %}
     </li>

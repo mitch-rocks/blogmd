@@ -12,8 +12,8 @@ drag & drop images, video, audio and files straight into the editor.
 ## Run it with Docker (recommended)
 
 ```bash
-printf '%s' 'a-long-admin-password' > admin_password.txt     # 10+ characters
-docker compose up -d --build                                  # or: docker stack deploy -c docker-compose.yml blogmd
+printf '%s' 'a-long-admin-password' | docker secret create blogmd_admin_password -   # once, 10+ characters
+docker stack deploy -c docker-compose.yml blogmd
 ```
 
 This starts two services:
